@@ -1,73 +1,67 @@
-# link to the website
-https://basemodmaker.github.io/image-to-mosaic-template/
+# Image to Mosaic Template Converter
 
-# Getting Started with Create React App
+A web-based tool that converts images into mosaic templates, perfect for pixel art and tile-based projects.
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+![App Screenshot](screenshot.png) <!-- Consider adding a screenshot -->
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- 🖼️ Upload PNG images and convert them to mosaic templates
+- 🎨 Customize the number of colors (1-256)
+- 📏 Adjust pixel/tile dimensions
+- 📊 Grid overlay with optional color numbers
+- 🔍 Pan and zoom functionality for detailed viewing
+- 🌓 Dark/Light mode support
+- 📱 Responsive design
+- 📊 Detailed statistics including:
+  - Total tile count
+  - Physical dimensions
+  - Cost estimation
+  - Color palette breakdown
 
-### `npm start`
+## Usage
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. Visit [https://basemodmaker.github.io/image-to-mosaic-template/](https://basemodmaker.github.io/image-to-mosaic-template/)
+2. Click "Upload PNG Image" to select your image
+3. Adjust settings:
+   - Pixel width for desired resolution
+   - Number of colors for color quantization
+   - Toggle grid and color number display
+   - Set tile size and cost for calculations
+4. Pan and zoom to inspect details
+5. Download your mosaic template
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project Information
 
-### `npm test`
+This project is built using:
+- React
+- HTML Canvas for image processing
+- CSS for styling
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Development
 
-### `npm run build`
+To run this project locally:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+# Clone the repository
+git clone https://github.com/basemodmaker/image-to-mosaic-template.git
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Install dependencies
+npm install
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Start development server
+npm start
+```
 
-### `npm run eject`
+## License
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Contributing
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Author
 
-## Learn More
+Base - [GitHub Profile](https://github.com/basemodmaker)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)

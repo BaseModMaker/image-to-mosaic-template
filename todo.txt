@@ -1,0 +1,30 @@
+separate code into this structure:
+
+src/
+  components/
+    HomePage/
+      HomePage.js              # Main component
+      ImageUploader.js        # Upload button and input
+      ControlPanel.js         # Pixels, colors and grid controls  
+      ImagePreview/
+        ImageContainer.js     # Common image container component
+        OriginalImage.js      # Original image preview
+        MosaicPreview.js      # Mosaic canvas preview
+      ColorPalette/
+        ColorPalette.js      # Color palette section
+        ColorCard.js         # Individual color card
+      Statistics/
+        Statistics.js        # Statistics section
+        SizeConfig.js        # Tile size configuration
+        CostConfig.js        # Cost configuration 
+        StatsTable.js        # Statistics table
+  hooks/
+    useMosaicLogic.js       # Main logic
+    useImageProcessing.js    # Image processing logic
+    useZoomPan.js           # Zoom and pan logic
+  utils/
+    formatters.js           # Formatting functions
+    conversions.js          # Unit conversion functions
+    constants.js            # Common constants
+  styles/
+    theme.js               # Theme colors and styles
