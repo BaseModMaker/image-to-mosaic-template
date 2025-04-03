@@ -12,6 +12,29 @@ function HomePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const originalImageRef = useRef(null);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [darkMode, setDarkMode] = useState(true); // Default to dark mode
+  const [containerDimensions, setContainerDimensions] = useState({ width: 400, height: 0 });
+
+  // Add this function at the top of HomePage component
+  const getFitDimensions = useCallback((containerWidth, containerHeight, imageWidth, imageHeight) => {
+    const containerRatio = containerWidth / containerHeight;
+    const imageRatio = imageWidth / imageHeight;
+  
+    if (imageRatio > containerRatio) {
+      // Image is wider than container ratio
+      return {
+        width: containerWidth,
+        height: containerWidth / imageRatio
+      };
+    } else {
+      // Image is taller than container ratio
+      return {
+        width: containerHeight * imageRatio,
+        height: containerHeight
+      };
+    }
+  }, []);
 
   const quantizeColors = useCallback((imageData, numColors) => {
     const pixels = [];
@@ -89,6 +112,13 @@ function HomePage() {
       imageData.data[idx + 2] = nearestCentroid[2];
     });
 
+    setSelectedColors(centroids.map(color => ({
+      r: color[0],
+      g: color[1],
+      b: color[2],
+      hex: `#${color[0].toString(16).padStart(2, '0')}${color[1].toString(16).padStart(2, '0')}${color[2].toString(16).padStart(2, '0')}`
+    })));
+
     return imageData;
   }, []); // No dependencies as this function doesn't use any external values
 
@@ -147,61 +177,79 @@ function HomePage() {
 
   const pixelateImage = useCallback(() => {
     if (!imagePreview) return;
-
+  
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const img = new Image();
-
+  
     img.onload = () => {
+      // Ensure we have valid dimensions
+      if (img.width === 0 || img.height === 0) {
+        console.error('Invalid image dimensions');
+        return;
+      }
+  
       // Calculate height to maintain aspect ratio
-      const pixelHeight = calculateHeight(pixelWidth, img.width, img.height);
-
+      const pixelHeight = Math.max(1, calculateHeight(pixelWidth, img.width, img.height));
+  
       // Set canvas size to match desired output dimensions
-      canvas.width = pixelWidth;
-      canvas.height = pixelHeight;
-
+      canvas.width = Math.max(1, pixelWidth);
+      canvas.height = Math.max(1, pixelHeight);
+  
       // Draw small image
       ctx.drawImage(img, 0, 0, pixelWidth, pixelHeight);
       
-      // Get the scaled-down image data
-      let imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
-      
-      // Apply color quantization
-      imageData = quantizeColors(imageData, colorCount);
-      
-      // Clear canvas and resize it to match original image dimensions
-      const PADDING = showGrid ? 20 : 0;
-      canvas.width = img.width + (PADDING * 2);
-      canvas.height = img.height + (PADDING * 2);
-      
-      // Disable smoothing for pixelated look
-      ctx.imageSmoothingEnabled = false;
-      
-      // Create temporary canvas for the small image
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = pixelWidth;
-      tempCanvas.height = pixelHeight;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.putImageData(imageData, 0, 0);
-      
-      // Draw the final scaled-up image with padding offset
-      ctx.drawImage(
-        tempCanvas,
-        0, 0, pixelWidth, pixelHeight,
-        PADDING, PADDING, img.width, img.height
-      );
-
-      if (showGrid) {
-        drawGrid(ctx, pixelWidth, pixelHeight);
+      try {
+        // Get the scaled-down image data
+        let imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
+        
+        // Apply color quantization
+        imageData = quantizeColors(imageData, colorCount);
+        
+        // Clear canvas and resize it to match original image dimensions
+        const PADDING = showGrid ? 20 : 0;
+        canvas.width = img.width + (PADDING * 2);
+        canvas.height = img.height + (PADDING * 2);
+        
+        // Disable smoothing for pixelated look
+        ctx.imageSmoothingEnabled = false;
+        
+        // Create temporary canvas for the small image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = pixelWidth;
+        tempCanvas.height = pixelHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw the final scaled-up image with padding offset
+        ctx.drawImage(
+          tempCanvas,
+          0, 0, pixelWidth, pixelHeight,
+          PADDING, PADDING, img.width, img.height
+        );
+  
+        if (showGrid) {
+          drawGrid(ctx, pixelWidth, pixelHeight);
+        }
+      } catch (error) {
+        console.error('Error processing image:', error);
       }
     };
-
+  
     img.src = imagePreview;
   }, [imagePreview, pixelWidth, colorCount, showGrid, quantizeColors, drawGrid, calculateHeight]);
+  
 
   useEffect(() => {
     pixelateImage();
   }, [pixelateImage]);
+
+  useEffect(() => {
+    setContainerDimensions({
+      width: 400,
+      height: window.innerHeight * 0.33 // 33vh in pixels
+    });
+  }, []);
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
@@ -259,162 +307,251 @@ function HomePage() {
   };
 
   return (
-    <div className="HomePage">
-      <h1>Image to Mosaic Converter</h1>
-      <div>
-        <input
-          type="file"
-          accept=".png"
-          id="imageUpload"
-          style={{ display: 'none' }}
-          onChange={handleImageUpload}
-        />
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ marginRight: '10px' }}>
-            Width (pixels):
-            <input
-              type="number"
-              value={pixelWidth}
-              onChange={(e) => setPixelWidth(Math.max(1, parseInt(e.target.value) || 1))}
-              style={{
-                marginLeft: '10px',
-                padding: '5px',
-                border: '1px solid #61dafb',
-                borderRadius: '3px',
-                width: '80px'
-              }}
-            />
-          </label>
-          <label style={{ marginLeft: '20px' }}>
-            Number of Colors:
-            <input
-              type="number"
-              value={colorCount}
-              onChange={(e) => setColorCount(Math.max(1, Math.min(256, parseInt(e.target.value) || 1)))}
-              style={{
-                marginLeft: '10px',
-                padding: '5px',
-                border: '1px solid #61dafb',
-                borderRadius: '3px',
-                width: '80px'
-              }}
-            />
-          </label>
-          <label style={{ marginLeft: '20px' }}>
-            <input
-              type="checkbox"
-              checked={showGrid}
-              onChange={(e) => setShowGrid(e.target.checked)}
-              style={{ marginRight: '5px' }}
-            />
-            Show Grid
-          </label>
-        </div>
-        <button 
-          onClick={() => document.getElementById('imageUpload').click()}
-          className="App-link"
+    <div className="HomePage" style={{ 
+      backgroundColor: darkMode ? '#282c34' : '#ffffff',
+      color: darkMode ? '#61dafb' : '#282c34',
+      minHeight: '100vh',
+      padding: '20px'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', // Changed from space-between to center
+        alignItems: 'center',
+        marginBottom: '20px',
+        position: 'relative' // Added to help with absolute positioning
+      }}>
+        <h1 style={{ margin: 0 }}>Image to Mosaic Converter</h1>
+        <button
+          onClick={() => setDarkMode(!darkMode)}
           style={{
-            padding: '10px 20px',
+            padding: '5px 10px',
             cursor: 'pointer',
-            backgroundColor: '#282c34',
-            border: '2px solid #61dafb',
+            backgroundColor: darkMode ? '#ffffff' : '#282c34',
+            border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
             borderRadius: '5px',
-            color: '#61dafb'
+            color: darkMode ? '#282c34' : '#61dafb',
+            position: 'absolute', // Added to position the button
+            right: 0 // Added to align to the right
           }}
         >
-          Upload PNG Image
+          {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
         </button>
-        
-        {imagePreview && (
-          <>
-            {(scale > 1 || panX !== 0 || panY !== 0) && (
+      </div>
+      
+      {/* Update existing button styles */}
+      <button 
+        onClick={() => document.getElementById('imageUpload').click()}
+        className="App-link"
+        style={{
+          padding: '10px 20px',
+          cursor: 'pointer',
+          backgroundColor: darkMode ? '#282c34' : '#ffffff',
+          border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+          borderRadius: '5px',
+          color: darkMode ? '#61dafb' : '#282c34'
+        }}
+      >
+        Upload PNG Image
+      </button>
+
+      {/* Update input styles */}
+      <input
+        type="file"
+        accept=".png"
+        id="imageUpload"
+        style={{ display: 'none' }}
+        onChange={handleImageUpload}
+      />
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ marginRight: '10px' }}>
+          Pixels:
+          <input
+            type="number"
+            value={pixelWidth}
+            onChange={(e) => setPixelWidth(Math.max(1, parseInt(e.target.value) || 1))}
+            style={{
+              marginLeft: '10px',
+              padding: '5px',
+              border: `1px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+              borderRadius: '3px',
+              width: '80px',
+              backgroundColor: darkMode ? '#282c34' : '#ffffff',
+              color: darkMode ? '#61dafb' : '#282c34'
+            }}
+          />
+        </label>
+        <label style={{ marginLeft: '20px' }}>
+          Number of Colors:
+          <input
+            type="number"
+            value={colorCount}
+            onChange={(e) => setColorCount(Math.max(1, Math.min(256, parseInt(e.target.value) || 1)))}
+            style={{
+              marginLeft: '10px',
+              padding: '5px',
+              border: `1px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+              borderRadius: '3px',
+              width: '80px',
+              backgroundColor: darkMode ? '#282c34' : '#ffffff',
+              color: darkMode ? '#61dafb' : '#282c34'
+            }}
+          />
+        </label>
+        <label style={{ marginLeft: '20px' }}>
+          <input
+            type="checkbox"
+            checked={showGrid}
+            onChange={(e) => setShowGrid(e.target.checked)}
+            style={{ marginRight: '5px' }}
+          />
+          Show Grid
+        </label>
+      </div>
+      
+      {imagePreview && (
+        <>
+          <div style={{ marginTop: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
+            <div>
+              <h3>Original Image</h3>
+              <div
+                style={{
+                  width: `${containerDimensions.width}px`,
+                  height: `${containerDimensions.height}px`,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                  borderRadius: '5px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <img 
+                  src={imagePreview} 
+                  alt="Original" 
+                  style={{
+                    ...getFitDimensions(
+                      containerDimensions.width,
+                      containerDimensions.height,
+                      originalImageRef.current?.naturalWidth || containerDimensions.width,
+                      originalImageRef.current?.naturalHeight || containerDimensions.height
+                    ),
+                    objectFit: 'contain',
+                    transform: `scale(${scale}) translate(${panX}px, ${panY}px)`,
+                    transformOrigin: 'center',
+                    cursor: isDragging ? 'grabbing' : 'grab'
+                  }}
+                  ref={originalImageRef}
+                />
+              </div>
+            </div>
+            <div>
+              <h3>Pixelated Preview</h3>
+              <div
+                style={{
+                  width: `${containerDimensions.width}px`,
+                  height: `${containerDimensions.height}px`,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                  borderRadius: '5px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    ...getFitDimensions(
+                      containerDimensions.width,
+                      containerDimensions.height,
+                      originalImageRef.current?.naturalWidth || containerDimensions.width,
+                      originalImageRef.current?.naturalHeight || containerDimensions.height
+                    ),
+                    objectFit: 'contain',
+                    transform: `scale(${scale}) translate(${panX}px, ${panY}px)`,
+                    transformOrigin: 'center',
+                    cursor: isDragging ? 'grabbing' : 'grab'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          {(scale > 1 || panX !== 0 || panY !== 0) && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
               <button 
                 onClick={resetZoom}
                 style={{
-                  marginTop: '10px',
-                  marginBottom: '10px',
                   padding: '5px 10px',
                   cursor: 'pointer',
-                  backgroundColor: '#282c34',
-                  border: '2px solid #61dafb',
+                  backgroundColor: darkMode ? '#282c34' : '#ffffff',
+                  border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
                   borderRadius: '5px',
-                  color: '#61dafb'
+                  color: darkMode ? '#61dafb' : '#282c34'
                 }}
               >
                 Reset Zoom
               </button>
-            )}
-            <div style={{ marginTop: '20px', display: 'flex', gap: '20px', justifyContent: 'center' }}>
-              <div>
-                <h3>Original Image</h3>
-                <div
-                  style={{
-                    width: '400px',
-                    height: '33vh',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '2px solid #61dafb',
-                    borderRadius: '5px'
-                  }}
-                  onWheel={handleWheel}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  <img 
-                    src={imagePreview} 
-                    alt="Original" 
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '50%',
-                      maxHeight: '33vh',
-                      width: 'auto',
-                      transform: `translate(-50%, -50%) scale(${scale}) translate(${panX}px, ${panY}px)`,
-                      transformOrigin: 'center',
-                      cursor: isDragging ? 'grabbing' : 'grab'
-                    }}
-                    ref={originalImageRef}
-                  />
-                </div>
-              </div>
-              <div>
-                <h3>Pixelated Preview</h3>
-                <div
-                  style={{
-                    width: '400px',
-                    height: '33vh',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '2px solid #61dafb',
-                    borderRadius: '5px'
-                  }}
-                  onWheel={handleWheel}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  <canvas
-                    ref={canvasRef}
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '50%',
-                      maxHeight: '33vh',
-                      width: 'auto',
-                      transform: `translate(-50%, -50%) scale(${scale}) translate(${panX}px, ${panY}px)`,
-                      transformOrigin: 'center',
-                      cursor: isDragging ? 'grabbing' : 'grab'
-                    }}
-                  />
-                </div>
-              </div>
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
+      {imagePreview && selectedColors.length > 0 && (
+        <div style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center' 
+        }}>
+          <h3>Color Palette</h3>
+          <div style={{ 
+            display: 'flex', 
+            gap: '10px', 
+            flexWrap: 'wrap', 
+            justifyContent: 'center',
+            maxWidth: '800px'
+          }}>
+            {selectedColors.map((color, index) => (
+              <div
+                key={color.hex}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <div
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    backgroundColor: color.hex,
+                    border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                    borderRadius: '5px'
+                  }}
+                />
+                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
+                  {color.hex.toUpperCase()}
+                </div>
+                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
+                  RGB({color.r}, {color.g}, {color.b})
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
