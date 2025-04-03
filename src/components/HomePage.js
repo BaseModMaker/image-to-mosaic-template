@@ -477,6 +477,161 @@ function HomePage() {
     return pixelWidth * Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1));
   };
 
+  // Add after the other helper functions
+  const generateHighResImage = useCallback(() => {
+    if (!imagePreview) return null;
+  
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+  
+    return new Promise((resolve) => {
+      img.onload = () => {
+        const pixelHeight = Math.max(1, calculateHeight(pixelWidth, img.width, img.height));
+        const scale = 8;
+        const PADDING = (showGrid || showColorNumbers) ? 40 * scale : 0;
+        
+        const pixelSizeX = (img.width * scale) / pixelWidth;
+        const pixelSizeY = (img.height * scale) / pixelHeight;
+        
+        canvas.width = (img.width * scale) + (PADDING * 2);
+        canvas.height = (img.height * scale) + (PADDING * 2);
+        
+        ctx.imageSmoothingEnabled = false;
+        
+        // Draw and process the pixelated image
+        const smallCanvas = document.createElement('canvas');
+        smallCanvas.width = pixelWidth;
+        smallCanvas.height = pixelHeight;
+        const smallCtx = smallCanvas.getContext('2d');
+        
+        smallCtx.drawImage(img, 0, 0, pixelWidth, pixelHeight);
+        const { processedImageData, colorIndices } = quantizeColors(
+          smallCtx.getImageData(0, 0, pixelWidth, pixelHeight),
+          colorCount
+        );
+        smallCtx.putImageData(processedImageData, 0, 0);
+        
+        ctx.drawImage(
+          smallCanvas,
+          0, 0, pixelWidth, pixelHeight,
+          PADDING, PADDING, img.width * scale, img.height * scale
+        );
+  
+        if (showGrid || showColorNumbers) {
+          ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.translate(PADDING, PADDING);
+  
+          // Calculate font size based on cell size
+          const fontSize = Math.min(
+            scale * 2, // Maximum font size
+            Math.max(scale, // Minimum font size
+              Math.floor(Math.min(pixelSizeX, pixelSizeY) / 3)
+            )
+          );
+  
+          // Draw grid and numbers
+          if (showGrid) {
+            // Draw column numbers
+            ctx.font = `${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            for (let i = 0; i < pixelWidth; i++) {
+              const x = i * pixelSizeX + pixelSizeX / 2;
+              ctx.save();
+              ctx.translate(x, -5);
+              ctx.rotate(-Math.PI / 2);
+              ctx.fillStyle = 'black';
+              ctx.fillText(`${i + 1}`, 0, 0);
+              ctx.restore();
+            }
+  
+            // Draw row numbers
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < pixelHeight; i++) {
+              const y = i * pixelSizeY + pixelSizeY / 2;
+              ctx.fillStyle = 'black';
+              ctx.fillText(`${i + 1}`, -5, y);
+            }
+          }
+  
+          // Draw grid lines
+          for (let i = 0; i <= pixelWidth; i++) {
+            const x = i * pixelSizeX;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, img.height * scale);
+            ctx.lineWidth = Math.max(2, scale / 4);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.stroke();
+          }
+  
+          for (let i = 0; i <= pixelHeight; i++) {
+            const y = i * pixelSizeY;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(img.width * scale, y);
+            ctx.lineWidth = Math.max(2, scale / 4);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.stroke();
+          }
+  
+          // Draw color numbers
+          if (showColorNumbers && colorIndices) {
+            const fontSize = Math.min(pixelSizeX * 0.5, pixelSizeY * 0.5);
+            ctx.font = `${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (let y = 0; y < pixelHeight; y++) {
+              for (let x = 0; x < pixelWidth; x++) {
+                const colorIndex = colorIndices[y * pixelWidth + x];
+                if (colorIndex !== undefined) {
+                  const centerX = x * pixelSizeX + pixelSizeX / 2;
+                  const centerY = y * pixelSizeY + pixelSizeY / 2;
+                  
+                  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                  const text = (colorIndex + 1).toString();
+                  const textWidth = ctx.measureText(text).width;
+                  ctx.fillRect(
+                    centerX - textWidth/2 - 4,
+                    centerY - fontSize/2 - 2,
+                    textWidth + 8,
+                    fontSize + 4
+                  );
+                  
+                  ctx.fillStyle = 'black';
+                  ctx.fillText(text, centerX, centerY);
+                }
+              }
+            }
+          }
+          
+          ctx.restore();
+        }
+  
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = imagePreview;
+    });
+  }, [imagePreview, pixelWidth, colorCount, showGrid, showColorNumbers, quantizeColors, calculateHeight]);
+  
+  // Add download handler
+  const handleDownload = useCallback(async () => {
+    const dataUrl = await generateHighResImage();
+    if (!dataUrl) return;
+  
+    const link = document.createElement('a');
+    link.download = 'mosaic-template.png';
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [generateHighResImage]);
+
   return (
     <div className="HomePage" style={{ 
       backgroundColor: darkMode ? '#282c34' : '#ffffff',
@@ -675,8 +830,8 @@ function HomePage() {
               </div>
             </div>
           </div>
-          {(scale > 1 || panX !== 0 || panY !== 0) && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', gap: '10px' }}>
+            {(scale > 1 || panX !== 0 || panY !== 0) && (
               <button 
                 onClick={resetZoom}
                 style={{
@@ -690,8 +845,21 @@ function HomePage() {
               >
                 Reset Zoom
               </button>
-            </div>
-          )}
+            )}
+            <button 
+              onClick={handleDownload}
+              style={{
+                padding: '5px 10px',
+                cursor: 'pointer',
+                backgroundColor: darkMode ? '#282c34' : '#ffffff',
+                border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                borderRadius: '5px',
+                color: darkMode ? '#61dafb' : '#282c34'
+              }}
+            >
+              Download Template
+            </button>
+          </div>
         </>
       )}
       {imagePreview && selectedColors.length > 0 && (
