@@ -22,6 +22,7 @@ export function useMosaicLogic() {
   const [tileCostPer, setTileCostPer] = useState(100);
   const [currency, setCurrency] = useState('€');
   const [outputUnit, setOutputUnit] = useState('mm');
+  const [colorIndices, setColorIndices] = useState(null);
 
   // Move all your existing utility functions and handlers here
   const getFitDimensions = useCallback((containerWidth, containerHeight, imageWidth, imageHeight) => {
@@ -169,6 +170,7 @@ export function useMosaicLogic() {
           };
         }));
       
+        setColorIndices(colorIndices); // Store colorIndices in state
         return { processedImageData: imageData, colorIndices };
   }, []);
 
@@ -664,6 +666,75 @@ const formatArea = (value, fromUnit, toUnit) => {
     document.body.removeChild(link);
   }, [generateHighResImage]);
 
+  const handleColorChange = useCallback((index, newColor) => {
+    if (!colorIndices || !canvasRef.current || !imagePreview) return;
+  
+    // Update selected colors state
+    setSelectedColors(colors => {
+      const newColors = [...colors];
+      newColors[index] = {
+        ...newColors[index],
+        r: newColor.r,
+        g: newColor.g,
+        b: newColor.b,
+        hex: newColor.hex
+      };
+      return newColors;
+    });
+  
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+  
+    img.onload = () => {
+      const pixelHeight = Math.max(1, calculateHeight(pixelWidth, img.width, img.height));
+  
+      // Create small canvas for pixel manipulation
+      const smallCanvas = document.createElement('canvas');
+      smallCanvas.width = pixelWidth;
+      smallCanvas.height = pixelHeight;
+      const smallCtx = smallCanvas.getContext('2d');
+  
+      // Draw original image at small size
+      smallCtx.drawImage(img, 0, 0, pixelWidth, pixelHeight);
+      const imageData = smallCtx.getImageData(0, 0, pixelWidth, pixelHeight);
+  
+      // Update pixels with the new color
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        if (colorIndices[Math.floor(i/4)] === index) {
+          imageData.data[i] = newColor.r;
+          imageData.data[i + 1] = newColor.g;
+          imageData.data[i + 2] = newColor.b;
+          // Keep original alpha value
+        }
+      }
+  
+      // Put modified image data back
+      smallCtx.putImageData(imageData, 0, 0);
+  
+      // Clear and resize main canvas
+      const PADDING = showGrid ? 20 : 0;
+      canvas.width = img.width + (PADDING * 2);
+      canvas.height = img.height + (PADDING * 2);
+      ctx.imageSmoothingEnabled = false;
+  
+      // Draw scaled image
+      ctx.drawImage(
+        smallCanvas,
+        0, 0, pixelWidth, pixelHeight,
+        PADDING, PADDING, img.width, img.height
+      );
+  
+      // Redraw grid if needed
+      if (showGrid || showColorNumbers) {
+        drawGrid(ctx, pixelWidth, pixelHeight, colorIndices);
+      }
+    };
+  
+    img.src = imagePreview;
+  
+  }, [colorIndices, canvasRef, imagePreview, pixelWidth, showGrid, showColorNumbers, calculateHeight, drawGrid]);
+
   return {
     // State
     imagePreview,
@@ -709,6 +780,7 @@ const formatArea = (value, fromUnit, toUnit) => {
     resetZoom,
     handleDownload,
     handleImageUpload,
+    handleColorChange,
 
     // Utilities
     getFitDimensions,

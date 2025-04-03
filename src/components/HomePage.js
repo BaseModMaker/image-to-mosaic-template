@@ -1,5 +1,6 @@
 import React from 'react';
 import { useMosaicLogic } from '../hooks/useMosaicLogic';
+import ColorCard from './ColorCard';  // Add this import
 
 function HomePage() {
   const {
@@ -45,7 +46,8 @@ function HomePage() {
     formatSize,
     formatArea,
     formatCost,
-    getTotalTiles
+    getTotalTiles,
+    handleColorChange
   } = useMosaicLogic();
 
   return (
@@ -295,52 +297,13 @@ function HomePage() {
             maxWidth: '800px'
           }}>
             {selectedColors.map((color, index) => (
-              <div
+              <ColorCard
                 key={color.hex}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <div
-                    style={{
-                      width: '50px',
-                      height: '50px',
-                      backgroundColor: color.hex,
-                      border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
-                      borderRadius: '5px'
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    top: '-10px',
-                    right: '-10px',
-                    backgroundColor: darkMode ? '#61dafb' : '#282c34',
-                    color: darkMode ? '#282c34' : '#ffffff',
-                    borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    fontSize: '12px'
-                  }}>
-                    {index + 1}
-                  </div>
-                </div>
-                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
-                  {color.hex.toUpperCase()}
-                </div>
-                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
-                  RGB({color.r}, {color.g}, {color.b})
-                </div>
-                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
-                  {color.count} tiles
-                </div>
-              </div>
+                color={color}
+                index={index}
+                darkMode={darkMode}
+                onColorChange={handleColorChange}
+              />
             ))}
           </div>
 
