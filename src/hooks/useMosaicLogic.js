@@ -677,7 +677,8 @@ const formatArea = (value, fromUnit, toUnit) => {
         r: newColor.r,
         g: newColor.g,
         b: newColor.b,
-        hex: newColor.hex
+        hex: newColor.hex,
+        count: newColors[index].count // Preserve the count
       };
       return newColors;
     });
@@ -699,12 +700,15 @@ const formatArea = (value, fromUnit, toUnit) => {
       smallCtx.drawImage(img, 0, 0, pixelWidth, pixelHeight);
       const imageData = smallCtx.getImageData(0, 0, pixelWidth, pixelHeight);
   
-      // Update pixels with the new color
+      // Replace colors using existing color indices
       for (let i = 0; i < imageData.data.length; i += 4) {
-        if (colorIndices[Math.floor(i/4)] === index) {
-          imageData.data[i] = newColor.r;
-          imageData.data[i + 1] = newColor.g;
-          imageData.data[i + 2] = newColor.b;
+        const pixelIndex = Math.floor(i/4);
+        const colorIndex = colorIndices[pixelIndex];
+        const color = selectedColors[colorIndex];
+        if (color) {
+          imageData.data[i] = color.r;
+          imageData.data[i + 1] = color.g;
+          imageData.data[i + 2] = color.b;
           // Keep original alpha value
         }
       }
@@ -732,8 +736,7 @@ const formatArea = (value, fromUnit, toUnit) => {
     };
   
     img.src = imagePreview;
-  
-  }, [colorIndices, canvasRef, imagePreview, pixelWidth, showGrid, showColorNumbers, calculateHeight, drawGrid]);
+  }, [colorIndices, canvasRef, imagePreview, pixelWidth, showGrid, showColorNumbers, calculateHeight, drawGrid, selectedColors]);
 
   return {
     // State

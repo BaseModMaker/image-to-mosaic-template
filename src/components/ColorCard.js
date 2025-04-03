@@ -1,7 +1,16 @@
 import React from 'react';
-import ColorEditor from './ColorEditor';
 
 const ColorCard = ({ color, index, darkMode, onColorChange }) => {
+  const handleColorChange = (e) => {
+    const hex = e.target.value;
+    // Convert hex to RGB
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    
+    onColorChange(index, { r, g, b, hex });
+  };
+
   return (
     <div style={{
       display: 'flex',
@@ -10,13 +19,19 @@ const ColorCard = ({ color, index, darkMode, onColorChange }) => {
       gap: '5px'
     }}>
       <div style={{ position: 'relative' }}>
-        <div style={{
-          width: '50px',
-          height: '50px',
-          backgroundColor: color.hex,
-          border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
-          borderRadius: '5px'
-        }} />
+        <input
+          type="color"
+          value={color.hex}
+          onChange={handleColorChange}
+          style={{
+            width: '50px',
+            height: '50px',
+            padding: 0,
+            border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        />
         <div style={{
           position: 'absolute',
           top: '-10px',
@@ -34,12 +49,6 @@ const ColorCard = ({ color, index, darkMode, onColorChange }) => {
           {index + 1}
         </div>
       </div>
-      <ColorEditor 
-        color={color}
-        index={index}
-        onColorChange={onColorChange}
-        darkMode={darkMode}
-      />
       <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
         {color.hex.toUpperCase()}
       </div>
