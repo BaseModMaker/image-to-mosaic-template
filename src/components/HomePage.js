@@ -15,6 +15,8 @@ function HomePage() {
   const [selectedColors, setSelectedColors] = useState([]);
   const [darkMode, setDarkMode] = useState(true); // Default to dark mode
   const [containerDimensions, setContainerDimensions] = useState({ width: 400, height: 0 });
+  // Add new state for showing color numbers
+  const [showColorNumbers, setShowColorNumbers] = useState(false);
 
   // Add this function at the top of HomePage component
   const getFitDimensions = useCallback((containerWidth, containerHeight, imageWidth, imageHeight) => {
@@ -38,63 +40,100 @@ function HomePage() {
 
   const quantizeColors = useCallback((imageData, numColors) => {
     const pixels = [];
+    const alphaValues = [];
+    const pixelIndices = [];
+    let clusters; // Declare clusters at function scope
+  
+    // Collect non-transparent pixels
     for (let i = 0; i < imageData.data.length; i += 4) {
-      pixels.push([
-        imageData.data[i],     // R
-        imageData.data[i + 1], // G
-        imageData.data[i + 2]  // B
-      ]);
+      const alpha = imageData.data[i + 3];
+      alphaValues.push(alpha);
+      
+      if (alpha > 0) {
+        pixels.push([
+          imageData.data[i],
+          imageData.data[i + 1],
+          imageData.data[i + 2]
+        ]);
+        pixelIndices.push(i / 4);
+      }
     }
-
-    // Simple k-means clustering for color quantization
+  
+    if (pixels.length === 0) return imageData;
+  
     let centroids = pixels
-      .slice(0, numColors)
+      .slice(0, Math.min(numColors, pixels.length))
       .map(pixel => [...pixel]);
-
-    for (let iteration = 0; iteration < 10; iteration++) {
-      const clusters = Array(numColors).fill().map(() => []);
+  
+    // Helper function to find nearest centroid
+    const findNearestCentroid = (pixel, centroids) => {
+      let minDist = Infinity;
+      let nearestIndex = 0;
       
-      // Assign pixels to nearest centroid
-      pixels.forEach((pixel, index) => {
-        let minDist = Infinity;
-        let nearestCentroid = 0;
-        
-        centroids.forEach((centroid, i) => {
-          const dist = Math.sqrt(
-            Math.pow(pixel[0] - centroid[0], 2) +
-            Math.pow(pixel[1] - centroid[1], 2) +
-            Math.pow(pixel[2] - centroid[2], 2)
-          );
-          if (dist < minDist) {
-            minDist = dist;
-            nearestCentroid = i;
-          }
-        });
-        
-        clusters[nearestCentroid].push(index);
-      });
-      
-      // Update centroids
-      clusters.forEach((cluster, i) => {
-        if (cluster.length > 0) {
-          const newCentroid = [0, 0, 0];
-          cluster.forEach(pixelIndex => {
-            const pixel = pixels[pixelIndex];
-            newCentroid[0] += pixel[0];
-            newCentroid[1] += pixel[1];
-            newCentroid[2] += pixel[2];
-          });
-          centroids[i] = newCentroid.map(sum => Math.round(sum / cluster.length));
+      centroids.forEach((centroid, i) => {
+        const dist = Math.sqrt(
+          Math.pow(pixel[0] - centroid[0], 2) +
+          Math.pow(pixel[1] - centroid[1], 2) +
+          Math.pow(pixel[2] - centroid[2], 2)
+        );
+        if (dist < minDist) {
+          minDist = dist;
+          nearestIndex = i;
         }
       });
-    }
+      
+      return nearestIndex;
+    };
 
-    // Apply quantized colors back to image data
+    const updateCentroids = (clusters, pixels, centroids) => {
+      return clusters.map((cluster, i) => {
+        if (cluster.length === 0) return centroids[i];
+        
+        const newCentroid = [0, 0, 0];
+        cluster.forEach(pixelIndex => {
+          const pixel = pixels[pixelIndex];
+          newCentroid[0] += pixel[0];
+          newCentroid[1] += pixel[1];
+          newCentroid[2] += pixel[2];
+        });
+        return newCentroid.map(sum => Math.round(sum / cluster.length));
+      });
+    };
+
+    // New function to assign pixels to clusters
+    const assignPixelsToClusters = (pixels, centroids, numColors) => {
+      const clusters = Array(numColors).fill().map(() => []);
+      
+      pixels.forEach((pixel, index) => {
+        const nearestIndex = findNearestCentroid(pixel, centroids);
+        clusters[nearestIndex].push(index);
+      });
+  
+      return clusters;
+    };
+
+    // K-means clustering
+    for (let iteration = 0; iteration < 10; iteration++) {
+      // Use the new function instead of declaring inside loop
+      clusters = assignPixelsToClusters(pixels, centroids, numColors);
+      centroids = updateCentroids(clusters, pixels, centroids);
+    }
+  
+    // Count color frequencies using the final clusters
+    const colorCounts = new Map();
+    clusters.forEach((cluster, i) => {
+      const centroid = centroids[i];
+      const key = `${centroid[0]},${centroid[1]},${centroid[2]}`;
+      colorCounts.set(key, cluster.length);
+    });
+  
+    // Apply colors and update selected colors
+    const colorIndices = new Array(pixels.length);
     pixels.forEach((pixel, i) => {
       let nearestCentroid = centroids[0];
       let minDist = Infinity;
       
-      centroids.forEach(centroid => {
+      centroids.forEach((centroid, index) => {
         const dist = Math.sqrt(
           Math.pow(pixel[0] - centroid[0], 2) +
           Math.pow(pixel[1] - centroid[1], 2) +
@@ -103,36 +142,50 @@ function HomePage() {
         if (dist < minDist) {
           minDist = dist;
           nearestCentroid = centroid;
+          colorIndices[i] = index;
         }
       });
       
-      const idx = i * 4;
-      imageData.data[idx] = nearestCentroid[0];
-      imageData.data[idx + 1] = nearestCentroid[1];
-      imageData.data[idx + 2] = nearestCentroid[2];
+      const originalIndex = pixelIndices[i] * 4;
+      imageData.data[originalIndex] = nearestCentroid[0];
+      imageData.data[originalIndex + 1] = nearestCentroid[1];
+      imageData.data[originalIndex + 2] = nearestCentroid[2];
+      imageData.data[originalIndex + 3] = alphaValues[pixelIndices[i]];
     });
+  
+    setSelectedColors(centroids.map(color => {
+      const key = `${color[0]},${color[1]},${color[2]}`;
+      return {
+        r: color[0],
+        g: color[1],
+        b: color[2],
+        count: colorCounts.get(key) || 0,
+        hex: `#${color[0].toString(16).padStart(2, '0')}${color[1].toString(16).padStart(2, '0')}${color[2].toString(16).padStart(2, '0')}`
+      };
+    }));
+  
+    return { processedImageData: imageData, colorIndices };
+  }, []);
 
-    setSelectedColors(centroids.map(color => ({
-      r: color[0],
-      g: color[1],
-      b: color[2],
-      hex: `#${color[0].toString(16).padStart(2, '0')}${color[1].toString(16).padStart(2, '0')}${color[2].toString(16).padStart(2, '0')}`
-    })));
-
-    return imageData;
-  }, []); // No dependencies as this function doesn't use any external values
-
-  const drawGrid = useCallback((ctx, width, height) => {
+  const drawGrid = useCallback((ctx, width, height, colorIndices) => {
     const PADDING = 20; // Space for numbers
     const imageWidth = ctx.canvas.width - (PADDING * 2);
     const imageHeight = ctx.canvas.height - (PADDING * 2);
     const cellWidth = imageWidth / width;
     const cellHeight = imageHeight / height;
     
+    // Calculate font size based on cell size
+    const fontSize = Math.min(
+      10, // Maximum font size
+      Math.max(6, // Minimum font size
+        Math.floor(Math.min(cellWidth, cellHeight) / 3)
+      )
+    );
+    
     ctx.save(); // Save the current state
     ctx.translate(PADDING, PADDING); // Move the grid to make space for labels
     
-    // Draw vertical lines
+    // Draw vertical lines and column numbers
     for (let i = 0; i <= width; i++) {
       const x = i * cellWidth;
       ctx.beginPath();
@@ -141,16 +194,22 @@ function HomePage() {
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.stroke();
       
-      // Draw column numbers on top
+      // Draw column numbers vertically on top
       if (i < width && showGrid) {
+        ctx.save();
         ctx.fillStyle = 'black';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(i + 1, x + cellWidth/2, -5);
+        ctx.font = `${fontSize}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        // Position and rotate text above grid
+        ctx.translate(x + cellWidth/2, -2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(`${i + 1}`, 0, 0);
+        ctx.restore();
       }
     }
     
-    // Draw horizontal lines
+    // Draw horizontal lines and row numbers
     for (let i = 0; i <= height; i++) {
       const y = i * cellHeight;
       ctx.beginPath();
@@ -159,17 +218,47 @@ function HomePage() {
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.stroke();
       
-      // Draw row numbers on left
+      // Draw row numbers on left (unchanged)
       if (i < height && showGrid) {
         ctx.fillStyle = 'black';
-        ctx.font = '10px Arial';
+        ctx.font = `${fontSize}px Arial`;
         ctx.textAlign = 'right';
-        ctx.fillText(i + 1, -5, y + cellHeight/2);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(i + 1, -2, y + cellHeight/2);
+      }
+    }
+
+    if (showColorNumbers && colorIndices) {
+      ctx.font = `${Math.min(cellWidth * 0.5, cellHeight * 0.5, 12)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const colorIndex = colorIndices[y * width + x];
+          if (colorIndex !== undefined) {
+            const centerX = x * cellWidth + cellWidth / 2;
+            const centerY = y * cellHeight + cellHeight / 2;
+            
+            // Add white background for better visibility
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            const textWidth = ctx.measureText(colorIndex + 1).width;
+            ctx.fillRect(
+              centerX - textWidth/2 - 2,
+              centerY - fontSize/2 - 2,
+              textWidth + 4,
+              fontSize + 4
+            );
+            
+            ctx.fillStyle = 'black';
+            ctx.fillText(colorIndex + 1, centerX, centerY);
+          }
+        }
       }
     }
     
     ctx.restore(); // Restore the original state
-  }, [showGrid]); // Only depends on showGrid state
+  }, [showGrid, showColorNumbers]); // Only depends on showGrid state
 
   const calculateHeight = useCallback((width, originalWidth, originalHeight) => {
     return Math.round((width * originalHeight) / originalWidth);
@@ -202,9 +291,8 @@ function HomePage() {
       try {
         // Get the scaled-down image data
         let imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
-        
-        // Apply color quantization
-        imageData = quantizeColors(imageData, colorCount);
+        const { processedImageData, colorIndices } = quantizeColors(imageData, colorCount);
+        imageData = processedImageData;
         
         // Clear canvas and resize it to match original image dimensions
         const PADDING = showGrid ? 20 : 0;
@@ -228,8 +316,8 @@ function HomePage() {
           PADDING, PADDING, img.width, img.height
         );
   
-        if (showGrid) {
-          drawGrid(ctx, pixelWidth, pixelHeight);
+        if (showGrid || showColorNumbers) {
+          drawGrid(ctx, pixelWidth, pixelHeight, colorIndices);
         }
       } catch (error) {
         console.error('Error processing image:', error);
@@ -237,7 +325,7 @@ function HomePage() {
     };
   
     img.src = imagePreview;
-  }, [imagePreview, pixelWidth, colorCount, showGrid, quantizeColors, drawGrid, calculateHeight]);
+  }, [imagePreview, pixelWidth, colorCount, showGrid, showColorNumbers, quantizeColors, drawGrid, calculateHeight]);
   
 
   useEffect(() => {
@@ -401,11 +489,27 @@ function HomePage() {
           <input
             type="checkbox"
             checked={showGrid}
-            onChange={(e) => setShowGrid(e.target.checked)}
+            onChange={(e) => {
+              setShowGrid(e.target.checked);
+              if (!e.target.checked) {
+                setShowColorNumbers(false);
+              }
+            }}
             style={{ marginRight: '5px' }}
           />
           Show Grid
         </label>
+        {showGrid && (
+          <label style={{ marginLeft: '20px' }}>
+            <input
+              type="checkbox"
+              checked={showColorNumbers}
+              onChange={(e) => setShowColorNumbers(e.target.checked)}
+              style={{ marginRight: '5px' }}
+            />
+            Show Color Numbers
+          </label>
+        )}
       </div>
       
       {imagePreview && (
@@ -532,23 +636,72 @@ function HomePage() {
                   gap: '5px'
                 }}
               >
-                <div
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    backgroundColor: color.hex,
-                    border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
-                    borderRadius: '5px'
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <div
+                    style={{
+                      width: '50px',
+                      height: '50px',
+                      backgroundColor: color.hex,
+                      border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                      borderRadius: '5px'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    right: '-10px',
+                    backgroundColor: darkMode ? '#61dafb' : '#282c34',
+                    color: darkMode ? '#282c34' : '#ffffff',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    fontSize: '12px'
+                  }}>
+                    {index + 1}
+                  </div>
+                </div>
                 <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
                   {color.hex.toUpperCase()}
                 </div>
                 <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
                   RGB({color.r}, {color.g}, {color.b})
                 </div>
+                <div style={{ fontSize: '12px', color: darkMode ? '#61dafb' : '#282c34' }}>
+                  {color.count} tiles
+                </div>
               </div>
             ))}
+          </div>
+
+          <div style={{ 
+            marginTop: '20px', 
+            padding: '10px',
+            border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+            borderRadius: '5px',
+            backgroundColor: darkMode ? '#1e2127' : '#f0f0f0',
+            width: '100%',
+            maxWidth: '800px'
+          }}>
+            <h3 style={{ textAlign: 'center', marginTop: 0 }}>Image Statistics</h3>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'auto auto', 
+              gap: '10px 20px',
+              fontSize: '14px',
+              justifyContent: 'center'
+            }}>
+              <div>Width:</div>
+              <div>{pixelWidth} tiles</div>
+              <div>Height:</div>
+              <div>{Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1))} tiles</div>
+              <div>Total Tiles:</div>
+              <div>{pixelWidth * Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1))} tiles</div>
+              <div>Colors Used:</div>
+              <div>{selectedColors.length} colors</div>
+            </div>
           </div>
         </div>
       )}
