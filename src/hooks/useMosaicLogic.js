@@ -434,6 +434,57 @@ export function useMosaicLogic() {
     }
   };
   
+  // Add this new function before formatArea
+const convertArea = (value, fromUnit, toUnit) => {
+  // First convert to mm²
+  let inMmSq;
+  switch (fromUnit) {
+    case 'cm':
+      inMmSq = value * 100; // 1 cm² = 100 mm²
+      break;
+    case 'm':
+      inMmSq = value * 1000000; // 1 m² = 1,000,000 mm²
+      break;
+    case 'inch':
+      inMmSq = value * 645.16; // 1 in² = 645.16 mm²
+      break;
+    default:
+      inMmSq = value;
+      break;
+  }
+  
+  // Then convert to target unit
+  switch (toUnit) {
+    case 'mm':
+      return inMmSq;
+    case 'cm':
+      return inMmSq / 100;
+    case 'm':
+      return inMmSq / 1000000;
+    case 'inch':
+      return inMmSq / 645.16;
+    default:
+      return inMmSq;
+  }
+};
+
+// Update the formatArea function to use convertArea
+const formatArea = (value, fromUnit, toUnit) => {
+  const converted = convertArea(value, fromUnit, toUnit);
+  switch (toUnit) {
+    case 'mm':
+      return `${converted.toFixed(0)} mm²`;
+    case 'cm':
+      return `${converted.toFixed(1)} cm²`;
+    case 'm':
+      return `${converted.toFixed(2)} m²`;
+    case 'inch':
+      return `${converted.toFixed(1)} in²`;
+    default:
+      return `${converted.toFixed(1)} ${toUnit}²`;
+  }
+};
+
   const formatSize = (value, fromUnit, toUnit) => {
     const converted = convertSize(value, fromUnit, toUnit);
     switch (toUnit) {
@@ -450,22 +501,6 @@ export function useMosaicLogic() {
     }
   };
   
-  const formatArea = (value, fromUnit, toUnit) => {
-    const converted = convertSize(value, fromUnit, toUnit);
-    switch (toUnit) {
-      case 'mm':
-        return `${converted.toFixed(0)} mm²`;
-      case 'cm':
-        return `${converted.toFixed(1)} cm²`;
-      case 'm':
-        return `${converted.toFixed(2)} m²`;
-      case 'inch':
-        return `${converted.toFixed(1)} in²`;
-      default:
-        return `${converted.toFixed(1)} ${toUnit}²`;
-    }
-  };
-
   const formatCost = (value, currency) => {
     return `${currency}${value.toFixed(2)}`;
   };
