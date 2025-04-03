@@ -646,7 +646,7 @@ function HomePage() {
         marginBottom: '20px',
         position: 'relative' // Added to help with absolute positioning
       }}>
-        <h1 style={{ margin: 0 }}>Image to Mosaic Converter</h1>
+        <h1 style={{ margin: 0 }}>Image to Mosaic Template Converter</h1>
         <button
           onClick={() => setDarkMode(!darkMode)}
           style={{
@@ -670,6 +670,7 @@ function HomePage() {
         className="App-link"
         style={{
           padding: '10px 20px',
+          marginBottom: '20px',
           cursor: 'pointer',
           backgroundColor: darkMode ? '#282c34' : '#ffffff',
           border: `2px solid ${darkMode ? '#61dafb' : '#282c34'}`,
@@ -793,7 +794,7 @@ function HomePage() {
               </div>
             </div>
             <div>
-              <h3>Pixelated Preview</h3>
+              <h3>Mosaic Template Preview</h3>
               <div
                 style={{
                   width: `${containerDimensions.width}px`,
@@ -936,7 +937,7 @@ function HomePage() {
             width: '100%',
             maxWidth: '800px'
           }}>
-            <h3 style={{ textAlign: 'center', marginTop: 0 }}>Image Statistics</h3>
+            <h3 style={{ textAlign: 'center', marginTop: 0 }}>Mosaic Statistics</h3>
             
             {/* Size Configuration */}
             <div style={{ marginBottom: '15px', display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -965,20 +966,6 @@ function HomePage() {
                 </select>
               </label>
 
-              <label>
-                Output unit:
-                <select
-                  value={outputUnit}
-                  onChange={(e) => setOutputUnit(e.target.value)}
-                  style={{ padding: '3px', marginLeft: '5px' }}
-                >
-                  <option value="mm">mm</option>
-                  <option value="cm">cm</option>
-                  <option value="m">m</option>
-                  <option value="inch">inch</option>
-                </select>
-              </label>
-              
               <label>
                 Cost per
                 <input
@@ -1026,7 +1013,33 @@ function HomePage() {
                 <tr>
                   <th style={{ padding: '8px', textAlign: 'left', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Metric</th>
                   <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Tiles</th>
-                  <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Size</th>
+                  <th style={{ 
+                    padding: '8px', 
+                    textAlign: 'right', 
+                    borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    Size in
+                    <select
+                      value={outputUnit}
+                      onChange={(e) => setOutputUnit(e.target.value)}
+                      style={{ 
+                        padding: '2px',
+                        backgroundColor: 'transparent',
+                        border: `1px solid ${darkMode ? '#61dafb' : '#282c34'}`,
+                        color: darkMode ? '#61dafb' : '#282c34',
+                        borderRadius: '3px'
+                      }}
+                    >
+                      <option value="mm">mm</option>
+                      <option value="cm">cm</option>
+                      <option value="m">m</option>
+                      <option value="inch">inch</option>
+                    </select>
+                  </th>
                   <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Cost</th>
                 </tr>
               </thead>
