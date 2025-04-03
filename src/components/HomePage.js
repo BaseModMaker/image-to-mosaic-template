@@ -17,6 +17,14 @@ function HomePage() {
   const [containerDimensions, setContainerDimensions] = useState({ width: 400, height: 0 });
   // Add new state for showing color numbers
   const [showColorNumbers, setShowColorNumbers] = useState(false);
+  // Add these state variables at the top of the component
+  const [tileSize, setTileSize] = useState(10);
+  const [tileSizeUnit, setTileSizeUnit] = useState('mm');
+  const [tileCost, setTileCost] = useState(5);
+  const [tileCostPer, setTileCostPer] = useState(100);
+  const [currency, setCurrency] = useState('€');
+  // Add new state for output unit
+  const [outputUnit, setOutputUnit] = useState('mm');
 
   // Add this function at the top of HomePage component
   const getFitDimensions = useCallback((containerWidth, containerHeight, imageWidth, imageHeight) => {
@@ -394,6 +402,81 @@ function HomePage() {
     setPanY(0);
   };
 
+  const convertSize = (value, fromUnit, toUnit) => {
+    // First convert to mm
+    let inMm = value;
+    switch (fromUnit) {
+      case 'cm':
+        inMm = value * 10;
+        break;
+      case 'm':
+        inMm = value * 1000;
+        break;
+      case 'inch':
+        inMm = value * 25.4;
+        break;
+      default:
+        // If unit is mm or unknown, keep the value as is
+        inMm = value;
+        break;
+    }
+    
+    // Then convert to target unit
+    switch (toUnit) {
+      case 'mm':
+        return inMm;
+      case 'cm':
+        return inMm / 10;
+      case 'm':
+        return inMm / 1000;
+      case 'inch':
+        return inMm / 25.4;
+      default:
+        // If unit is unknown, return the value in mm
+        return inMm;
+    }
+  };
+  
+  const formatSize = (value, fromUnit, toUnit) => {
+    const converted = convertSize(value, fromUnit, toUnit);
+    switch (toUnit) {
+      case 'mm':
+        return `${converted.toFixed(1)} mm`;
+      case 'cm':
+        return `${converted.toFixed(1)} cm`;
+      case 'm':
+        return `${converted.toFixed(2)} m`;
+      case 'inch':
+        return `${converted.toFixed(1)} in`;
+      default:
+        return `${converted.toFixed(1)} ${toUnit}`;
+    }
+  };
+  
+  const formatArea = (value, fromUnit, toUnit) => {
+    const converted = convertSize(value, fromUnit, toUnit);
+    switch (toUnit) {
+      case 'mm':
+        return `${converted.toFixed(0)} mm²`;
+      case 'cm':
+        return `${converted.toFixed(1)} cm²`;
+      case 'm':
+        return `${converted.toFixed(2)} m²`;
+      case 'inch':
+        return `${converted.toFixed(1)} in²`;
+      default:
+        return `${converted.toFixed(1)} ${toUnit}²`;
+    }
+  };
+
+  const formatCost = (value, currency) => {
+    return `${currency}${value.toFixed(2)}`;
+  };
+
+  const getTotalTiles = () => {
+    return pixelWidth * Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1));
+  };
+
   return (
     <div className="HomePage" style={{ 
       backgroundColor: darkMode ? '#282c34' : '#ffffff',
@@ -686,22 +769,132 @@ function HomePage() {
             maxWidth: '800px'
           }}>
             <h3 style={{ textAlign: 'center', marginTop: 0 }}>Image Statistics</h3>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'auto auto', 
-              gap: '10px 20px',
-              fontSize: '14px',
-              justifyContent: 'center'
-            }}>
-              <div>Width:</div>
-              <div>{pixelWidth} tiles</div>
-              <div>Height:</div>
-              <div>{Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1))} tiles</div>
-              <div>Total Tiles:</div>
-              <div>{pixelWidth * Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1))} tiles</div>
-              <div>Colors Used:</div>
-              <div>{selectedColors.length} colors</div>
+            
+            {/* Size Configuration */}
+            <div style={{ marginBottom: '15px', display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <label>
+                Tile size:
+                <input
+                  type="number"
+                  value={tileSize}
+                  onChange={(e) => setTileSize(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
+                  style={{
+                    width: '60px',
+                    marginLeft: '5px',
+                    marginRight: '5px',
+                    padding: '3px'
+                  }}
+                />
+                <select
+                  value={tileSizeUnit}
+                  onChange={(e) => setTileSizeUnit(e.target.value)}
+                  style={{ padding: '3px' }}
+                >
+                  <option value="mm">mm</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                  <option value="inch">inch</option>
+                </select>
+              </label>
+
+              <label>
+                Output unit:
+                <select
+                  value={outputUnit}
+                  onChange={(e) => setOutputUnit(e.target.value)}
+                  style={{ padding: '3px', marginLeft: '5px' }}
+                >
+                  <option value="mm">mm</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                  <option value="inch">inch</option>
+                </select>
+              </label>
+              
+              <label>
+                Cost per
+                <input
+                  type="number"
+                  value={tileCostPer}
+                  onChange={(e) => setTileCostPer(Math.max(1, parseInt(e.target.value) || 1))}
+                  style={{
+                    width: '60px',
+                    marginLeft: '5px',
+                    marginRight: '5px',
+                    padding: '3px'
+                  }}
+                />
+                tiles:
+                <input
+                  type="number"
+                  value={tileCost}
+                  onChange={(e) => setTileCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                  style={{
+                    width: '60px',
+                    marginLeft: '5px',
+                    marginRight: '5px',
+                    padding: '3px'
+                  }}
+                />
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  style={{ padding: '3px' }}
+                >
+                  <option value="€">EUR (€)</option>
+                  <option value="$">USD ($)</option>
+                  <option value="£">GBP (£)</option>
+                </select>
+              </label>
             </div>
+          
+            {/* Statistics Table */}
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              color: darkMode ? '#61dafb' : '#282c34'
+            }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Metric</th>
+                  <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Tiles</th>
+                  <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Size</th>
+                  <th style={{ padding: '8px', textAlign: 'right', borderBottom: `1px solid ${darkMode ? '#61dafb' : '#282c34'}` }}>Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '8px' }}>Width</td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>{pixelWidth}</td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {formatSize(pixelWidth * tileSize, tileSizeUnit, outputUnit)}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px' }}>Height</td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1))}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {formatSize(Math.round(pixelWidth * (originalImageRef.current?.naturalHeight || 0) / (originalImageRef.current?.naturalWidth || 1)) * tileSize, tileSizeUnit, outputUnit)}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px' }}>Total</td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {getTotalTiles()}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {formatArea(getTotalTiles() * tileSize * tileSize, tileSizeUnit, outputUnit)}
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'right' }}>
+                    {formatCost(getTotalTiles() * (tileCost / tileCostPer), currency)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
