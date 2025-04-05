@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMosaicLogic } from '../hooks/useMosaicLogic';
-import ColorCard from './ColorCard';  // Add this import
+import ColorCard from './ColorCard';
+import DownloadOptionsModal from './DownloadOptionsModal';
 
 function HomePage() {
   const {
@@ -40,15 +41,32 @@ function HomePage() {
     handleMouseMove,
     handleMouseUp,
     resetZoom,
-    handleDownload,
     handleImageUpload,
     getFitDimensions,
     formatSize,
     formatArea,
     formatCost,
     getTotalTiles,
-    handleColorChange
+    handleColorChange,
+    processDownload // Added this import
   } = useMosaicLogic();
+
+  const [downloadOptions, setDownloadOptions] = useState({
+    includeGrid: false,
+    includeColorNumbers: false,
+    includePalette: false,
+    includeStats: false
+  });
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
+  const handleDownloadWithOptions = () => {
+    setShowDownloadModal(true); // Fixed typo from setDownloadModal to setShowDownloadModal
+  };
+
+  const handleConfirmDownload = () => {
+    setShowDownloadModal(false);
+    processDownload(downloadOptions);
+  };
 
   return (
     <div className="HomePage" style={{ 
@@ -266,7 +284,7 @@ function HomePage() {
               </button>
             )}
             <button 
-              onClick={handleDownload}
+              onClick={handleDownloadWithOptions}
               style={{
                 padding: '5px 10px',
                 cursor: 'pointer',
@@ -458,6 +476,14 @@ function HomePage() {
           </div>
         </div>
       )}
+      <DownloadOptionsModal
+        show={showDownloadModal}
+        options={downloadOptions}
+        setOptions={setDownloadOptions}
+        onClose={() => setShowDownloadModal(false)}
+        onDownload={handleConfirmDownload}
+        darkMode={darkMode}
+      />
     </div>
   );
 }
